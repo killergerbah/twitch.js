@@ -28,7 +28,7 @@ var positionFunctions = {
 		var sinT = directionVector.y / speed;
 		//console.log(directionVector);
 		return function (t) {
-			return translateVector.add(new Vector(speed * t * cosT, -speed * t * sinT + .5 * GRAVITY_ACCELERATION * mass * t * t));
+			return translateVector.add(new Vector(speed * t * cosT, (speed * t * sinT) + (.5 * GRAVITY_ACCELERATION * mass * t * t)));
 		};
 	}
 }
@@ -120,7 +120,7 @@ TargetGenerator.prototype.start = function(){
 	var translateVector, directionVector;
 	if( draw == 0 ){ //from bottom
 		console.log("bottom");
-		translateVector = new Vector( Math.random() * (PLAYGROUND_WIDTH - 200) + 100, -50 );
+		translateVector = new Vector( Math.random() * (PLAYGROUND_WIDTH - 200) + 100, PLAYGROUND_HEIGHT );
 		directionVector = new Vector( Math.random() * DIRECTIONAL_VARIATION * difficulty, -1 * Math.random() * difficulty * ( MAX_SPEED - 100 ) - 100  ); 
 	}
 	else if ( draw == 1 ){ //from left or right 
@@ -239,7 +239,7 @@ $(function () {
 			$this = $(this);
 			game.objectMap.getObject($this).step(); 
 			if(offPlayground($this)){
-				game.objectMap.getObject($this).explodeSilently();
+				//game.objectMap.getObject($this).explodeSilently();
 			}
 		});
     }, REFRESH_RATE);
