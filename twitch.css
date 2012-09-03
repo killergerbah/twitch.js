@@ -19,6 +19,10 @@
 	line-height:48px;
 	vertical-align:middle;
 }
+#playground
+{
+    cursor: default;
+}
 .score
 {
     text-align:center;
@@ -46,3 +50,42 @@
     right:0;
     top:0;
 }
+
+#stats
+{
+    margin-left:auto;
+    margin-right:auto;
+    width:400px;
+    border-radius: 10px 10px 10px 10px;
+    box-shadow: 0 0 10px black;
+}
+#statsStats
+{
+    padding:5px;
+
+}
+#statsTitle
+{
+    padding:5px;
+    border-radius: 10px 10px 0 0;
+    display:block;
+    background:black;
+    color:white;
+    text-align:center;
+    font-size:24px;
+}
+#statsClose
+{
+    margin-left:auto;
+    margin-right:auto;
+    padding:5px;
+    color:white;
+    background:gray;
+    text-align:center;
+    width:100px;
+    border-radius:10px;
+}
+    #statsClose:hover
+    {
+        background:black;
+    }

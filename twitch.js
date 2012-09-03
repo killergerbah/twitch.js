@@ -75,6 +75,8 @@ function GameState(difficulty, timeLimit) {
     this.timeLimit = timeLimit;
     this.score = 0;
     this.$targets = $("#targets");
+    this.$playground = $("#playground");
+    this.paused = false;
 }
 GameState.prototype.start = function () {
     var that = this;
@@ -85,6 +87,7 @@ GameState.prototype.start = function () {
 GameState.prototype.end = function () {
     this.targetGenerator.end();
     this.gameHud.end();
+    this.paused = true;
 }
 GameState.prototype.scoreCategory = function( reactionTime ){
 	if(reactionTime < 200){
@@ -128,6 +131,7 @@ function GameHud(game){
 	this.game = game;
 	this.$score = $("#score");
 	this.$hud = $("#hud");
+	this.$targets = $("#targets");
 	this.timer = null;
 }
 //For now
@@ -137,7 +141,11 @@ GameHud.prototype.start = function () {
     this.timer.start();
 }
 GameHud.prototype.end = function () {
-
+    var $stats = $("<div id=\"stats\"><div id=\"statsTitle\">Result</div><div id=\"statsStats\">Score: " + this.game.score + "<div id=\"statsClose\">Done</div></div></div>");
+    $stats.css({ position: "relative", "top": 50 });
+    $stats.appendTo(this.$targets);
+        
+    $("#statsClose").one("click", function () { $stats.remove(); });
 }
 GameHud.prototype.updateScore = function(){
 	console.log(this.$score);
@@ -347,17 +355,19 @@ $(function () {
 	//Score display
 	$("#hud").append("<div id=\"score\" class=\"hudText\">0</div>");
 	
-	var game = new GameState(1, 60);
+	var game = new GameState(1, 5);
 	game.start();
 
     $.playground().registerCallback(function () {
-        $(".target").each(function () { 
-            $this = $(this);
-            var target = game.objectMap.getObject($this);
-			target.step(); 
-			if (target.disposable && target.offPlayground()) {
-			    target.dispose();
-			}
+        $(".target").each(function () {
+            if (!game.paused) {
+                $this = $(this);
+                var target = game.objectMap.getObject($this);
+                target.step();
+                if (target.disposable && target.offPlayground()) {
+                    target.dispose();
+                }
+            }
 		});
     }, REFRESH_RATE);
     //start the mothafuckin game
