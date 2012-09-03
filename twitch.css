@@ -2,22 +2,47 @@
 	from{ opacity:1; }
 	to{ opacity:0; }
 }
+.wf-active
+{
+    font-family: 'Share', cursive;
+}
 .blink {
 	-webkit-animation: blink .01s;
 	-webkit-animation-direction: alternate;
 	-webkit-animation-iteration-count: infinite;
 }
-.blam{
-	-webkit-animation: blam 1s;
-}
-
-#score{
-	font-family:tahoma, verdana;
-	color:white;
-	text-shadow: 0px 1px 1px #000, 1px 1px 1px #000, 1px 0px 1px #000, -1px 0px 1px #000, -1px -1px 1px #000, 0px -1px 1px #000;
+.hudText
+{
 	font-size:32px;
 	font-weight:bold;
 	height:48px;
 	line-height:48px;
 	vertical-align:middle;
+}
+.score
+{
+    text-align:center;
+    font-weight:bold;
+    width:50px;
+}
+.score0
+{
+    
+}
+
+.score1
+{
+  
+}
+
+.score2
+{
+    
+}
+
+.timer
+{
+    position:absolute;
+    right:0;
+    top:0;
 }
