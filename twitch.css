@@ -2,7 +2,7 @@
 	from{ opacity:1; }
 	to{ opacity:0; }
 }
-.wf-active
+.wf-active #playground
 {
     font-family: 'Share', cursive;
 }
@@ -22,6 +22,12 @@
 #playground
 {
     cursor: default;
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    cursor:default;
 }
 .score
 {
@@ -31,17 +37,22 @@
 }
 .score0
 {
-    
+    color:#FFCC00;
 }
 
 .score1
 {
-  
+    color: #0c0;
 }
 
 .score2
 {
-    
+    color:#00b;
+}
+
+.score3
+{
+    color:#444;
 }
 
 .timer
@@ -58,6 +69,7 @@
     width:400px;
     border-radius: 10px 10px 10px 10px;
     box-shadow: 0 0 10px black;
+    background:white;
 }
 #statsStats
 {
