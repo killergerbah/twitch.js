@@ -29,7 +29,8 @@ var scoreCategories = {
 	sick:0, ok:1, shit:2, snorlax:3, chain:4
 };
 var spriteOptions = {
-	normal: { animation: new $.gQ.Animation({ imageURL: "sprites/normal.png" }), width: 50, height: 50, posx: -9999, posy: -9999 }
+	normal: { animation: new $.gQ.Animation({ imageURL: "sprites/normal.png" }), width: 50, height: 50, posx: -9999, posy: -9999 },
+	bouncy: { animation: new $.gQ.Animation({ imageURL: "sprites/bouncy.png" }), width: 50, height: 50, posx: -9999, posy: -9999 }
 };
 var positionFunctions = {
 	//Returns function of time that computes projectile position with gravity
@@ -48,6 +49,13 @@ function toVector( xy ){
     return new Vector(xy.x, xy.y);
 }
 
+//Round to nearest nth digit
+function round( num, digit){
+	if(num){
+		return Math.round(Math.pow(10, digit) * num) / Math.pow(10, digit);
+	}
+	return null;
+}
 //Map jQuery objects to corresponding game objects
 function ObjectMap(){
 	this.objectMap = {};
@@ -91,7 +99,7 @@ function Score(score, category) {
 function GameState(timeLimit) {
     this.objectMap = new ObjectMap();
     this.timeLimit = timeLimit;
-    this.stats = { score: 0, totalTimeToHit: 0, numMisses: 0, numHits: 0, longestChain: 0, difficultyAchieved: START_DIFFICULTY, numDrops:0, numFrags:0, numTargets:0, totalLifeSpan:0 };
+    this.stats = { score: 0, totalTimeToHit: 0, numMisses: 0, numHits: 0, longestChain: 0, numDrops:0, numFrags:0, numTargets:0, totalLifeSpan:0 };
     this.$targets = $("#targets");
     this.$playground = $("#playground");
     this.paused = false;
@@ -138,9 +146,6 @@ GameState.prototype.updateStats = function (type, target) {
     
 	var xy = target.$elem.xy();
 	this.gameHud.displayScore(score, { x: xy.x, y: xy.y - 25 });
-	if (this.targetGenerator.difficulty > this.stats.difficultyAchieved) {
-	    this.stats.difficultyAchieved = this.targetGenerator.difficulty;
-	}
 };
 
 GameState.prototype.addTarget = function (type, xy) {
@@ -154,7 +159,7 @@ GameState.prototype.addTarget = function (type, xy) {
         this.objectMap.addObject($target, target);
     }
     else if (type === "bouncy") {
-        this.$targets.addSprite(targetId, spriteOptions.normal);
+        this.$targets.addSprite(targetId, spriteOptions.bouncy);
         $target = $("#" + targetId).addClass("target").xy(xy.x, xy.y);
         target = new BouncyTarget(this, $target, BOUNCY_TARGET_HITS_REQUIRED);
         this.objectMap.addObject($target, target);
@@ -208,7 +213,19 @@ GameHud.prototype.end = function () {
     this.$targets.css("opacity", .5);
     this.$score.remove();
     var stats = this.game.stats;
-    menu.content("Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / ( stats.numHits + stats.numMisses) ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numHits ) + "<br />Number of clicks: " + (stats.numHits + stats.numMisses) + "<br/>Longest chain: " + stats.longestChain + "<br/>Difficulty achieved: " + stats.difficultyAchieved + "<br/>Number of drops: " + stats.numDrops + "<br/>Destroyed: "+stats.numFrags + "<br/>Targets generated: " + stats.numTargets + "<br/>Average target life span: " + stats.totalLifeSpan / stats.numTargets);
+    menu.content("<table style=\"padding-right:5px;margin-left:auto;margin-right:auto;\">" + 
+		"<tr><td>Score</td><td style=\"font-weight:bold;\">" + stats.score + "</td></tr>" + 
+		"<tr><td>Accuracy</td><td style=\"font-weight:bold;\">" + ( round(stats.numHits / ( stats.numHits + stats.numMisses), 1) || "n/a") + "</td></tr>" +
+		"<tr><td>Average time till touch</td style=\"font-weight:bold;\"><td style=\"font-weight:bold;\"> " + ( round(stats.totalTimeToHit / stats.numHits, 1) || "n/a" )  + "</td></tr>" + 
+		"<tr><td>Total clicks</td><td style=\"font-weight:bold;\">" + (stats.numHits + stats.numMisses) + "<br/>" + 
+		"<tr><td>Longest chain</td><td style=\"font-weight:bold;\"> " + stats.longestChain + "</td></tr>" + 
+		"<tr><td>Difficulty</td><td style=\"font-weight:bold;\"> " + round(this.game.targetGenerator.difficulty, 2) + "</td></tr>" + 
+		"<tr><td>Total dropped</td><td style=\"font-weight:bold;\">" + stats.numDrops + "</td></tr>" + 
+		"<tr><td>Total eliminated</td><td style=\"font-weight:bold;\">"+stats.numFrags + "</td></tr>" + 
+		"<tr><td>Total generated</td><td style=\"font-weight:bold;\">" + stats.numTargets + "</td></tr>" +
+		"<tr><td>Average lifespan</td><td style=\"font-weight:bold;\">" + (round(stats.totalLifeSpan / stats.numTargets, 1) || "n/a") + "</td></tr>" +
+		"</table>"
+	);
     menu.addButton("done", function(){ this.hide(); titleScreen(); }, menu);
 	menu.show();
 }
@@ -562,8 +579,10 @@ Menu.prototype.content = function(content){
 Menu.prototype.addButton = function(name, callback, obj){
 	var id = "menu" + name + Math.floor(Math.random() * 100);
 	var $button = $("<div id=\"" + id + "\" class=\"menuButton\"></div>").text(name)
-		.click(function(){callback.call(obj)})
 		.appendTo(this.$content);
+	obj = obj || $button;
+	$button.click(function(){callback.call(obj)});
+	return $button;
 };
 
 function loadFonts() {
@@ -579,7 +598,21 @@ function loadFonts() {
 function titleScreen() {
 	var menu = new Menu($("#playground"));
 	menu.title("twitch");
-	menu.addButton("play", function() { play(3); this.hide(); }, menu);
+	var countDown = function(timeLeft){
+		var that = this;
+		if(timeLeft){
+			this.text(timeLeft.toString());
+			timeLeft--;
+		}
+		setTimeout( function(){ countDown.call(that, timeLeft); }, 1000 );
+	}
+	menu.addButton("play", function() { 
+		countDown.call(this, 3);
+		setTimeout(function(){
+			menu.hide();
+			play(60);
+		}, 3000);
+	});
 	menu.show();
 };
 
@@ -617,8 +650,6 @@ function play(timeLimit) {
 
 $(function () {
     loadFonts();
-
     $("#playground").playground({ width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT, refreshRate: REFRESH_RATE });
-
     titleScreen();
 });

@@ -113,14 +113,10 @@
     margin-right:auto;
     padding:5px;
     color:white;
-    background:gray;
+    background:black;
     text-align:center;
     width:100px;
 }
-    .menuButton:hover
-    {
-        background:black;
-    }
 
 #title
 {
