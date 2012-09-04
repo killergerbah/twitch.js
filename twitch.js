@@ -22,10 +22,12 @@ var MAX_DIFFICULTY = 3;
 var DIRECTIONAL_VARIATION = 2;
 var BOUNCY_TARGET_HITS_REQUIRED = 3;
 var BOUNCY_TARGET_BOUNCE_FORCE = 350;
+var CHAIN_CLIP = 500;
+var START_DIFFICULTY = 1;
+var LEARNING_RATE = .02;
 var scoreCategories = {
-	sick:0, ok:1, shit:2, snorlax:3
+	sick:0, ok:1, shit:2, snorlax:3, chain:4
 };
-var scoreMap = [50, 10, 5, 1];
 var spriteOptions = {
 	normal: { animation: new $.gQ.Animation({ imageURL: "sprites/normal.png" }), width: 50, height: 50, posx: -9999, posy: -9999 }
 };
@@ -66,63 +68,71 @@ function generateId(type) {
     return type + Math.floor(Math.random() * 10000);
 }
 
+function scoreCategory(reactionTime) {
+    if (reactionTime < 200) {
+        return scoreCategories.sick;
+    }
+    else if (reactionTime < 500) {
+        return scoreCategories.ok;
+    }
+    else if (reactionTime < 1000) {
+        return scoreCategories.shit;
+    }
+    return scoreCategories.snorlax;
+}
 
-
+//Holds a score along with associated category
+function Score(score, category) {
+    this.score = score;
+    this.category = category;
+};
 
 //Game internals
-function GameState(difficulty, timeLimit) {
+function GameState(timeLimit) {
     this.objectMap = new ObjectMap();
     this.timeLimit = timeLimit;
-    this.stats = { score: 0, totalTimeToHit: 0, longestChain: null, numClicks: 0, numHits: 0 };
+    this.stats = { score: 0, totalTimeToHit: 0, numMisses: 0, numHits: 0, longestChain: 0, difficultyAchieved: START_DIFFICULTY };
     this.$targets = $("#targets");
     this.$playground = $("#playground");
     this.paused = false;
+    this.chainTimeout;
+    this.chainLength = 0;
     this.gameHud = new GameHud(this);
-    this.targetGenerator = new TargetGenerator(this, difficulty);
-}
+    this.targetGenerator = new TargetGenerator(this);
+};
 GameState.prototype.start = function () {
     var that = this;
     this.targetGenerator.start();
     this.gameHud.start();
-    this.$playground.click(function () { that.updateStats.call(that); });
+    this.$playground.click(function () { that.registerClick.call(that); });
     setTimeout(function () { that.end.call(that); }, this.timeLimit * 1000); //time limit is in seconds
-}
+};
 GameState.prototype.end = function () {
     this.targetGenerator.end();
     this.gameHud.end();
     this.$playground.off("click");
     $(".target").off();
     this.paused = true;
-}
-GameState.prototype.scoreCategory = function( reactionTime ){
-	if(reactionTime < 200){
-		return scoreCategories.sick;
-	}
-	else if(reactionTime < 500){
-		return scoreCategories.ok;
-	}
-	else if(reactionTime < 1000){
-		return scoreCategories.shit;
-	}
-	return scoreCategories.snorlax;
-}
+};
 GameState.prototype.updateStats = function (target) {
     if (!target) {
-        this.stats.numClicks++;
+        console.log("click");
+        this.stats.numMisses++;
         return;
     }
-    var now = new Date().getTime();
-    var reaction = now - target.start;
-    this.stats.totalTimeToHit += reaction;
     this.stats.numHits++;
-	var category = this.scoreCategory( reaction );
-	var diff = scoreMap[category];
-	this.stats.score += diff;
+    this.stats.totalTimeToHit += target.getLifeSpan();
+    var score = target.score();
+    this.stats.score += score.score;
 	this.gameHud.updateStats();
     
 	var xy = target.$elem.xy();
-	this.gameHud.displayScore(category, diff, { x: xy.x, y: xy.y - 25 } );
+	this.gameHud.displayScore(score, { x: xy.x, y: xy.y - 25 });
+	if (this.targetGenerator.difficulty > this.stats.difficultyAchieved) {
+	    this.stats.difficultyAchieved = this.targetGenerator.difficulty;
+	}
 };
+
 GameState.prototype.addTarget = function (type, xy) {
     var targetId = generateId("target");
     var $target, target;
@@ -132,7 +142,7 @@ GameState.prototype.addTarget = function (type, xy) {
         target = new NormalTarget(this, $target);
         this.objectMap.addObject($target, target);
     }
-    else if (type == "bouncy") {
+    else if (type === "bouncy") {
         this.$targets.addSprite(targetId, spriteOptions.normal);
         $target = $("#" + targetId).addClass("target").xy(xy.x, xy.y);
         target = new BouncyTarget(this, $target, BOUNCY_TARGET_HITS_REQUIRED);
@@ -140,8 +150,29 @@ GameState.prototype.addTarget = function (type, xy) {
     }
 	return target;
 };
+GameState.prototype.registerHit = function (target) {
+    this.targetGenerator.tickle();
+    this.updateCurrentChain();
+    this.updateStats(target);
+};
+GameState.prototype.registerClick = function () {
+   // console.log("click")
+    this.targetGenerator.soothe();
+    this.updateStats();
+}
+GameState.prototype.updateCurrentChain = function(){
+    var that = this;
+    clearTimeout(this.chainTimeout);
+    this.chainTimeout = setTimeout( function(){ that.chainLength = 0;}, CHAIN_CLIP);
+    this.chainLength++;
+    if (this.chainLength > this.stats.longestChain) {
+        this.stats.longestChain = this.chainLength;
+    }
+}
 
-
+GameState.prototype.currentChainLength = function(){
+    return this.chainLength;
+}
 
 function GameHud(game){
 	this.game = game;
@@ -156,19 +187,20 @@ GameHud.prototype.start = function () {
     this.timer.start();
 }
 GameHud.prototype.end = function () {
+    var that = this;
     var stats = this.game.stats;
-    var $stats = $("<div id=\"stats\"><div id=\"statsTitle\">Result</div><div id=\"statsStats\">Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / stats.numClicks ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numClicks ) + "<br />Number of clicks: " + stats.numClicks + "<div id=\"statsClose\">Done</div></div></div>");
+    var $stats = $("<div id=\"stats\"><div id=\"statsTitle\">Result</div><div id=\"statsStats\">Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / ( stats.numHits + stats.numMisses) ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numHits + stats.numMisses ) + "<br />Number of clicks: " + (stats.numHits + stats.numMisses) + "<br/>Longest chain: " + stats.longestChain + "<br/>Difficulty achieved: " + stats.difficultyAchieved + "<div id=\"statsClose\">Done</div></div></div>");
     $stats.css({ position: "relative", "top": 50 });
-    $stats.appendTo(this.$targets);
+    this.$hud.append($stats).removeClass("unsolid");;
         
-    $("#statsClose").one("click", function () { $stats.remove(); });
+    $("#statsClose").one("click", function () { $stats.remove(); that.$hud.addClass("unsolid") });
 }
 GameHud.prototype.updateStats = function(){
 	console.log(this.$score);
 	this.$score.text(this.game.stats.score.toString());
 };
-GameHud.prototype.displayScore = function (category, score, xy) {
-    $("<div style=\"position:absolute;top:" + xy.y + "px;left:" + xy.x + "px;\" class=\"score score" + category + "\">" + score + "</div>")
+GameHud.prototype.displayScore = function (score, xy) {
+    $("<div style=\"position:absolute;top:" + xy.y + "px;left:" + xy.x + "px;\" class=\"score score" + score.category + "\">" + score.score + "</div>")
         .appendTo(this.$hud)
         .animate({ top: xy.y - 15 }, { duration: 500, easing: "linear", complete: function () { $(this).remove(); } });
 }
@@ -195,37 +227,47 @@ GameTimer.prototype.end = function () {
     clearInterval(this.ticker);
     this.$elem.remove();
 }
-function TargetGenerator(game, difficulty){
+function TargetGenerator(game){
 	this.game = game;
-	this.difficulty = difficulty;
 	this.targetTimeout;
+	this.difficulty = START_DIFFICULTY;
 };
-
-
-
 
 TargetGenerator.prototype.start = function(){
 	var that = this;
-	var difficulty = this.difficulty;
 	var draw = Math.random();
 	var translateVector, directionVector;
 	if( draw > .5 ){ //from bottom
 		translateVector = new Vector( Math.random() * (PLAYGROUND_WIDTH - 200) + 100, PLAYGROUND_HEIGHT );
-		directionVector = new Vector( Math.random() * DIRECTIONAL_VARIATION * difficulty, -1 * Math.random() * difficulty * ( MAX_SPEED - 200 ) - 200  ); 
+		directionVector = new Vector( Math.random() * DIRECTIONAL_VARIATION, -1 * Math.random() * ( MAX_SPEED - 200 ) - 200  ); 
 	}
 	else{ //from left or right 
-		var drawAgain = Math.random();
-		var translateX = drawAgain > .5 ? -50 : PLAYGROUND_WIDTH;
-		var direction = drawAgain > .5 ? 1 : -1;
+	    draw = Math.random();
+	    var translateX, direction;
+	    if (draw > .5) {
+	        translateX = -50;
+	        direction = 1;
+        }
+	    else {
+	        direction = -1;
+	        translateX = PLAYGROUND_WIDTH;
+	    }
 		translateVector = new Vector( translateX, Math.random() * (PLAYGROUND_HEIGHT - 200) + 100 );
-		directionVector = new Vector( direction * Math.random() * difficulty * ( MAX_SPEED - 100 ) + direction * 100, Math.random() * DIRECTIONAL_VARIATION * difficulty ); 
+		directionVector = new Vector( direction * Math.random() * ( MAX_SPEED - 100 ) + direction * 100, Math.random() * DIRECTIONAL_VARIATION ); 
 	}
-	this.targetTimeout = setTimeout( function(){ 
-	    var target = that.game.addTarget("normal", translateVector);
+	this.targetTimeout = setTimeout(function () {
+	    draw = Math.random();
+	    var target = draw > .9 ? that.game.addTarget("bouncy", translateVector) : target = that.game.addTarget("normal", translateVector);
 	    target.punt(directionVector);
 		that.start();
-	}, Math.random() * 2000 );
+	}, Math.random() * 2000 / this.difficulty );
 };
+TargetGenerator.prototype.tickle = function () {
+    this.difficulty += 2 * LEARNING_RATE;
+}
+TargetGenerator.prototype.soothe = function () {
+    this.difficulty = Math.max(.5, this.difficulty - LEARNING_RATE);
+}
 TargetGenerator.prototype.end = function () {
 	clearTimeout(this.targetTimeout);
 };
@@ -291,6 +333,7 @@ function Target(game, $elem, mass, stepper) {
     this.start = new Date().getTime();
     this.lastPosition = null;
     this.disposable = false;
+    this.lifespan = 0;
     setTimeout(function () { that.disposable = true; }, 500);
  }
 //Remove object from DOM
@@ -304,8 +347,7 @@ Target.prototype.dispose = function () {
  Target.prototype.explode = function () {
      var that = this;
      this.stepper.timeScale = .25;
-     this.$elem.addClass("blink").off();
-     this.game.updateStats(this);
+     this.$elem.addClass("blink unsolid").off();
      setTimeout(function () {
          that.dispose.call(that);
      }, 500);
@@ -336,6 +378,17 @@ Target.prototype.positionAsVector = function () {
     var xy = this.$elem.xy();
     return new Vector(xy.x + 25, xy.y + 25);
 }
+//Sets lifespan of target
+Target.prototype.setLifeSpan = function () {
+    var now = new Date().getTime();
+    this.lifespan = now - this.start;
+}
+//Get life span and reset field
+Target.prototype.getLifeSpan = function () {
+    var lifespan = this.lifespan;
+    this.lifespan = 0;
+    return lifespan;
+}
 
 //A target that explodes on click
 function NormalTarget(game, $elem) {
@@ -347,12 +400,43 @@ function NormalTarget(game, $elem) {
     this.lastPosition = null;
     this.disposable = false;
     this.mass = 1;   //mass of normal targets is 1
+    this.reaction = null;
     setTimeout(function () { that.disposable = true; }, 500);
     //Explode on click
-    this.$elem.one("mousedown", function () { that.explode.call(that); });
+    this.$elem.one("mousedown", function () {
+        that.setLifeSpan();
+        that.game.registerHit(that);
+        that.explode.call(that);
+    });
 }
 
 NormalTarget.prototype = new Target();
+
+NormalTarget.prototype.score = function () {
+    var now = new Date().getTime();
+    var reaction = now - this.start;
+    var category = scoreCategory(reaction);
+    var score = 0;
+    if (category == scoreCategories.sick) {
+        score += 50;
+    }
+    else if (category == scoreCategories.ok) {
+        score += 10;
+    }
+    else if (category == scoreCategories.shit) {
+        score += 5;
+    }
+    else if (category == scoreCategories.snorlax) {
+        score += 1;
+    }
+    var chainLength = this.game.currentChainLength();
+    console.log(chainLength);
+    if (chainLength > 1) {
+        score += 2 * (chainLength - 1);
+        return new Score(score, scoreCategories.chain);
+    }
+    return new Score(score, category);
+};
 
 //A target that bounces when you hit it
 function BouncyTarget(game, $elem, numHits) {
@@ -361,32 +445,77 @@ function BouncyTarget(game, $elem, numHits) {
     this.$elem = $elem;
     this.stepper = null;
     this.start = new Date().getTime();
+    this.lastHit = null;
     this.lastPosition = null;
     this.disposable = false;
     this.mass = 1;   //default mass to 1
     this.numHits = numHits; //number of hits needed
     setTimeout(function () { that.disposable = true; }, 500);
-    //Explode on click
+    //Set life span to first click
+    this.$elem.one("mousedown", function () {
+        that.setLifeSpan();
+    });
+    
     this.$elem.on("mousedown", function (e) {
         var playgroundPos = that.game.$playground.offset();
         var mouseX = e.pageX - playgroundPos.left;
         var mouseY = e.pageY - playgroundPos.top;
+        that.numHits--;
         that.bounce(mouseX, mouseY);
+        that.game.registerHit(that);
+        that.lastHit = new Date().getTime();
     });
 }
 
 BouncyTarget.prototype = new Target();
 
+BouncyTarget.prototype.score = function () {
+    var now = new Date().getTime();
+    var reaction;
+    if (this.lastHit) {
+        reaction = now - this.lastHit;
+    }
+    else {
+        reaction = now - this.start;
+    }
+    console.log(reaction);
+    var score = 0;
+    if (this.numHits == 0) {
+        score += 15;
+    }
+    var category = scoreCategory(reaction);
+    if (category == scoreCategories.sick) {
+        score += 10;
+    }
+    else if (category == scoreCategories.ok) {
+        score += 5;
+    }
+    else if (category == scoreCategories.shit) {
+        score += 3;
+    }
+    else if (category == scoreCategories.snorlax) {
+        score += 1;
+    }
+    var chainLength = this.game.currentChainLength();
+    if (chainLength > 1) {
+        score += (chainLength - 1);
+        return new Score(score, scoreCategories.chain);
+    }
+    console.log(category);
+    return new Score(score, category);
+}
+
+//Either causes target to explode or punts target in new direction
+//depending on numHits field
 BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
-    this.numHits--;
     if (this.numHits == 0) {
         this.explode();
     }
     else {
+        //Change trajectory of target depending on mouse position
         var mousePosition = new Vector(-mouseX, -mouseY);
         console.log(this.positionAsVector().add(mousePosition).toString());
         this.punt(this.positionAsVector().add(mousePosition).unit().scale(BOUNCY_TARGET_BOUNCE_FORCE));
-        this.game.updateStats(this);
     }
 };
 
@@ -403,9 +532,11 @@ function loadFonts() {
 $(function () {
     loadFonts();
     $("#playground").playground({ width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT, refreshRate: REFRESH_RATE });
-    $.playground().addGroup("hud", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
+    $.playground()
+        .addGroup("targets", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
 		.end()
-		.addGroup("targets", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
+		.addGroup("hud", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
+            .addClass("unsolid")
 		.end();
 		
 	//Score display
@@ -413,15 +544,17 @@ $(function () {
     //Disable text select cursor
     $("#playground")[0].onselectstart = function () { return false; };
 	
-	var game = new GameState(1, 60);
+	var game = new GameState(2);
 	game.start();
-    $.playground().registerCallback(function () {
+	$.playground().registerCallback(function () {
+        //move each target to its next position
         $(".target").each(function () {
             if (!game.paused) {
                 $this = $(this);
                 var target = game.objectMap.getObject($this);
                 target.step();
                 if (target.disposable && target.offPlayground()) {
+                    //remove offscreen targets from the DOM
                     target.dispose();
                 }
             }

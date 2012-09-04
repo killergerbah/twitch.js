@@ -54,7 +54,17 @@
 {
     color:#444;
 }
-
+.score4
+{
+    color: #CC6600;
+    -webkit-animation: blink .01s;
+	-webkit-animation-direction: alternate;
+	-webkit-animation-iteration-count: infinite;
+}
+.unsolid
+{
+    pointer-events:none;
+}
 .timer
 {
     position:absolute;
