@@ -208,26 +208,31 @@ GameHud.prototype.start = function () {
 }
 GameHud.prototype.end = function () {
     var that = this;
-	var menu = new Menu(this.$hud.removeClass("unsolid"));
-	menu.title("result");
-    this.$targets.css("opacity", .5);
-    this.$score.remove();
-    var stats = this.game.stats;
-    menu.content("<table style=\"padding-right:5px;margin-left:auto;margin-right:auto;\">" + 
-		"<tr><td>Score</td><td style=\"font-weight:bold;\">" + stats.score + "</td></tr>" + 
-		"<tr><td>Accuracy</td><td style=\"font-weight:bold;\">" + ( round(stats.numHits / ( stats.numHits + stats.numMisses), 1) || "n/a") + "</td></tr>" +
-		"<tr><td>Average time till touch</td style=\"font-weight:bold;\"><td style=\"font-weight:bold;\"> " + ( round(stats.totalTimeToHit / stats.numHits, 1) || "n/a" )  + "</td></tr>" + 
-		"<tr><td>Total clicks</td><td style=\"font-weight:bold;\">" + (stats.numHits + stats.numMisses) + "<br/>" + 
-		"<tr><td>Longest chain</td><td style=\"font-weight:bold;\"> " + stats.longestChain + "</td></tr>" + 
-		"<tr><td>Difficulty</td><td style=\"font-weight:bold;\"> " + round(this.game.targetGenerator.difficulty, 2) + "</td></tr>" + 
-		"<tr><td>Total dropped</td><td style=\"font-weight:bold;\">" + stats.numDrops + "</td></tr>" + 
-		"<tr><td>Total eliminated</td><td style=\"font-weight:bold;\">"+stats.numFrags + "</td></tr>" + 
-		"<tr><td>Total generated</td><td style=\"font-weight:bold;\">" + stats.numTargets + "</td></tr>" +
-		"<tr><td>Average lifespan</td><td style=\"font-weight:bold;\">" + (round(stats.totalLifeSpan / stats.numTargets, 1) || "n/a") + "</td></tr>" +
-		"</table>"
-	);
-    menu.addButton("done", function(){ this.hide(); titleScreen(); }, menu);
-	menu.show();
+	this.$targets.css("opacity", .5);
+	this.$score.remove();
+	var timeUp = $("<div style=\"position:relative;text-align:center;width:100px;margin-left:auto;margin-right:auto;top:45%;\">Time's up!</div>");
+	this.$hud.append(timeUp);
+	setTimeout(function(){
+		var menu = new Menu(that.$hud.removeClass("unsolid"));
+		menu.title("result");
+		timeUp.remove();
+		var stats = that.game.stats;
+		menu.content("<table style=\"padding-right:5px;margin-left:auto;margin-right:auto;\">" + 
+			"<tr><td>Score</td><td style=\"font-weight:bold;\">" + stats.score + "</td></tr>" + 
+			"<tr><td>Accuracy</td><td style=\"font-weight:bold;\">" + ( round(stats.numHits / ( stats.numHits + stats.numMisses), 1) || "n/a") + "</td></tr>" +
+			"<tr><td>Average time till touch</td style=\"font-weight:bold;\"><td style=\"font-weight:bold;\"> " + ( round(stats.totalTimeToHit / stats.numHits, 1) || "n/a" )  + "</td></tr>" + 
+			"<tr><td>Total clicks</td><td style=\"font-weight:bold;\">" + (stats.numHits + stats.numMisses) + "<br/>" + 
+			"<tr><td>Longest chain</td><td style=\"font-weight:bold;\"> " + stats.longestChain + "</td></tr>" + 
+			"<tr><td>Difficulty</td><td style=\"font-weight:bold;\"> " + round(that.game.targetGenerator.difficulty, 2) + "</td></tr>" + 
+			"<tr><td>Total dropped</td><td style=\"font-weight:bold;\">" + stats.numDrops + "</td></tr>" + 
+			"<tr><td>Total eliminated</td><td style=\"font-weight:bold;\">"+stats.numFrags + "</td></tr>" + 
+			"<tr><td>Total generated</td><td style=\"font-weight:bold;\">" + stats.numTargets + "</td></tr>" +
+			"<tr><td>Average lifespan</td><td style=\"font-weight:bold;\">" + (round(stats.totalLifeSpan / stats.numTargets, 1) || "n/a") + "</td></tr>" +
+			"</table>"
+		);
+		menu.addButton("done", function(){ this.hide(); titleScreen(); }, menu);
+		menu.show();
+	}, 2000);
 }
 GameHud.prototype.updateStats = function(){
 	console.log(this.$score);
@@ -610,7 +615,7 @@ function titleScreen() {
 		countDown.call(this, 3);
 		setTimeout(function(){
 			menu.hide();
-			play(60);
+			play(1);
 		}, 3000);
 	});
 	menu.show();
