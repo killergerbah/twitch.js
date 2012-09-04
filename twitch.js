@@ -204,15 +204,16 @@ GameHud.prototype.start = function () {
 GameHud.prototype.end = function () {
     var that = this;
     this.$targets.css("opacity", .5);
+    this.$score.remove();
     var stats = this.game.stats;
-    var $stats = $("<div id=\"stats\"><div id=\"statsTitle\">Result</div><div id=\"statsStats\">Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / ( stats.numHits + stats.numMisses) ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numHits ) + "<br />Number of clicks: " + (stats.numHits + stats.numMisses) + "<br/>Longest chain: " + stats.longestChain + "<br/>Difficulty achieved: " + stats.difficultyAchieved + "<br/>Number of drops: " + stats.numDrops + "<br/>Destroyed: "+stats.numFrags + "<br/>Targets generated: " + stats.numTargets + "<br/>Average target life span: " + stats.totalLifeSpan / stats.numTargets + "<div id=\"statsClose\">Done</div></div></div>");
+    var $stats = $("<div id=\"stats\"><div id=\"statsTitle\">Result</div><div id=\"statsStats\">Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / ( stats.numHits + stats.numMisses) ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numHits ) + "<br />Number of clicks: " + (stats.numHits + stats.numMisses) + "<br/>Longest chain: " + stats.longestChain + "<br/>Difficulty achieved: " + stats.difficultyAchieved + "<br/>Number of drops: " + stats.numDrops + "<br/>Destroyed: "+stats.numFrags + "<br/>Targets generated: " + stats.numTargets + "<br/>Average target life span: " + stats.totalLifeSpan / stats.numTargets + "<div id=\"statsClose\">Restart</div></div></div>");
     $stats.css({ position: "relative", "top": 50 });
     this.$hud.append($stats).removeClass("unsolid");
         
     $("#statsClose").one("click", function () {
         $stats.remove();
-        that.$targets.css("opacity", 1);
         that.$hud.addClass("unsolid");
+        titleScreen();
     });
 }
 GameHud.prototype.updateStats = function(){
@@ -545,27 +546,30 @@ function loadFonts() {
     s.parentNode.insertBefore(wf, s);
 }
 
-$(function () {
-    loadFonts();
-    $("#playground").playground({ width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT, refreshRate: REFRESH_RATE });
-    $.playground()
-        .addGroup("targets", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
-		.end()
-		.addGroup("hud", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
-            .addClass("unsolid")
-		.end();
-		
-	//Score display
-    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div>");
-    //Disable text select cursor
-    $("#playground")[0].onselectstart = function () { return false; };
-	
-    var game = new GameState(60);
-	game.start();
-	$.playground().registerCallback(function () {
+function titleScreen() {
+    $("#playground").append(
+        "<div id=\"titleScreen\">" +
+        "<div id=\"title\">twitch</div>" +
+        "<ul id=\"menu\"><li id=\"play\">play</li></div>" +
+        "</div>"
+    );
+    $("#play").click(function () {
+        play(60);
+    });
+};
+
+function play(timeLimit) {
+    $.playground().clearAll(true)
+      .addGroup("targets", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
+      .end()
+      .addGroup("hud", { width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT })
+          .addClass("unsolid")
+      .end();
+    
+    $.playground().registerCallback(function () {
         //move each target to its next position
         $(".target").each(function () {
-            if (!game.paused) {
+            if (game && !game.paused) {
                 $this = $(this);
                 var target = game.objectMap.getObject($this);
                 target.step();
@@ -574,8 +578,22 @@ $(function () {
                     target.dispose();
                 }
             }
-		});
+        });
     }, REFRESH_RATE);
-    //start the mothafuckin game
-    $.playground().startGame();
+    
+    //Score display
+    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div>");
+    //Disable text select cursor
+    $("#playground")[0].onselectstart = function () { return false; };
+    var game = new GameState(timeLimit);
+
+    $.playground().startGame(function () { $("#titleScreen").remove(); $(".target").remove(); game.start(); });
+}
+
+$(function () {
+    loadFonts();
+
+    $("#playground").playground({ width: PLAYGROUND_WIDTH, height: PLAYGROUND_HEIGHT, refreshRate: REFRESH_RATE });
+
+    titleScreen();
 });

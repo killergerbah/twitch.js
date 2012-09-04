@@ -121,3 +121,31 @@
     {
         background:black;
     }
+
+#title
+{
+    font-size:64px;
+    position:absolute;
+    top:50px;
+    width:100%;
+    text-align:center;
+}
+#menu
+{
+    position:absolute;
+    top:100px;
+    left:250px;
+    font-size:32px;
+  
+}
+    #menu li
+    {
+        list-style-type:none;
+        text-align:center;
+    }
+        #menu li:hover
+        {
+            list-style-type:square;
+        }
+
+    
