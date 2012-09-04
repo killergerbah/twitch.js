@@ -203,18 +203,14 @@ GameHud.prototype.start = function () {
 }
 GameHud.prototype.end = function () {
     var that = this;
+	var menu = new Menu(this.$hud.removeClass("unsolid"));
+	menu.title("result");
     this.$targets.css("opacity", .5);
     this.$score.remove();
     var stats = this.game.stats;
-    var $stats = $("<div id=\"stats\"><div id=\"statsTitle\">Result</div><div id=\"statsStats\">Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / ( stats.numHits + stats.numMisses) ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numHits ) + "<br />Number of clicks: " + (stats.numHits + stats.numMisses) + "<br/>Longest chain: " + stats.longestChain + "<br/>Difficulty achieved: " + stats.difficultyAchieved + "<br/>Number of drops: " + stats.numDrops + "<br/>Destroyed: "+stats.numFrags + "<br/>Targets generated: " + stats.numTargets + "<br/>Average target life span: " + stats.totalLifeSpan / stats.numTargets + "<div id=\"statsClose\">Restart</div></div></div>");
-    $stats.css({ position: "relative", "top": 50 });
-    this.$hud.append($stats).removeClass("unsolid");
-        
-    $("#statsClose").one("click", function () {
-        $stats.remove();
-        that.$hud.addClass("unsolid");
-        titleScreen();
-    });
+    menu.content("Score: " + stats.score + "<br />Accuracy: " + ( stats.numHits / ( stats.numHits + stats.numMisses) ) + "<br />Average time to hit: " + ( stats.totalTimeToHit / stats.numHits ) + "<br />Number of clicks: " + (stats.numHits + stats.numMisses) + "<br/>Longest chain: " + stats.longestChain + "<br/>Difficulty achieved: " + stats.difficultyAchieved + "<br/>Number of drops: " + stats.numDrops + "<br/>Destroyed: "+stats.numFrags + "<br/>Targets generated: " + stats.numTargets + "<br/>Average target life span: " + stats.totalLifeSpan / stats.numTargets);
+    menu.addButton("done", function(){ this.hide(); titleScreen(); }, menu);
+	menu.show();
 }
 GameHud.prototype.updateStats = function(){
 	console.log(this.$score);
@@ -536,6 +532,40 @@ BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
     }
 };
 
+function Menu($parent){
+	this.$parent = $parent;
+	this.id = Math.floor(Math.random() * 100);
+	this.$elem = $("<div id=\"menu" + this.id + "\" class=\"menu\"><div id=\"menuHeader" + this.id +"\" class=\"menuHeader\"></div><div id=\"menuContent" + this.id +"\" class=\"menuContent\"></div></div>");
+	this.$header = this.$elem.find(".menuHeader");
+	this.$content = this.$elem.find(".menuContent");
+}
+
+Menu.prototype.show = function(){
+	if(this.$parent.find("#menu" + this.id).length == 0){
+		this.$elem.appendTo(this.$parent);
+	}
+	this.$elem.css("top", (PLAYGROUND_HEIGHT - this.$elem.height()) / 2).show();
+}
+
+Menu.prototype.hide = function(){
+	this.$elem.hide();
+}
+
+Menu.prototype.title = function(title){
+	this.$header.text(title);
+}
+
+Menu.prototype.content = function(content){
+	this.$content.html(content);
+};
+
+Menu.prototype.addButton = function(name, callback, obj){
+	var id = "menu" + name + Math.floor(Math.random() * 100);
+	var $button = $("<div id=\"" + id + "\" class=\"menuButton\"></div>").text(name)
+		.click(function(){callback.call(obj)})
+		.appendTo(this.$content);
+};
+
 function loadFonts() {
     var wf = document.createElement('script');
     wf.src = ('https:' == document.location.protocol ? 'https' : 'http') +
@@ -547,15 +577,10 @@ function loadFonts() {
 }
 
 function titleScreen() {
-    $("#playground").append(
-        "<div id=\"titleScreen\">" +
-        "<div id=\"title\">twitch</div>" +
-        "<ul id=\"menu\"><li id=\"play\">play</li></div>" +
-        "</div>"
-    );
-    $("#play").click(function () {
-        play(60);
-    });
+	var menu = new Menu($("#playground"));
+	menu.title("twitch");
+	menu.addButton("play", function() { play(3); this.hide(); }, menu);
+	menu.show();
 };
 
 function play(timeLimit) {

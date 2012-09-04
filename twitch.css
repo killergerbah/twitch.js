@@ -82,8 +82,9 @@
     top:0;
 }
 
-#stats
+.menu
 {
+	position:relative;
     margin-left:auto;
     margin-right:auto;
     width:400px;
@@ -91,12 +92,12 @@
     box-shadow: 0 0 10px black;
     background:white;
 }
-#statsStats
+.menuContent
 {
     padding:5px;
 
 }
-#statsTitle
+.menuHeader
 {
     padding:5px;
     border-radius: 10px 10px 0 0;
@@ -106,7 +107,7 @@
     text-align:center;
     font-size:24px;
 }
-#statsClose
+.menuButton
 {
     margin-left:auto;
     margin-right:auto;
@@ -115,9 +116,8 @@
     background:gray;
     text-align:center;
     width:100px;
-    border-radius:10px;
 }
-    #statsClose:hover
+    .menuButton:hover
     {
         background:black;
     }
