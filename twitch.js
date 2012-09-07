@@ -1,7 +1,9 @@
-﻿/// <reference path="Scripts/linq.js" />
+﻿/* twitch by R-J 
+    A fast-paced shootemup */
+
 /// <reference path="jquery-1.8.0.min.js" />
 /// <reference path="jquery.gamequery-0.7.0.js" />
-/// <reference path="Scripts/linq.jquery.js" />
+
 
 //TODO: Multi-hit targets
 //      Update scoring system to include target speed, chaining
