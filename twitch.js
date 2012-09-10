@@ -218,13 +218,10 @@ GameHud.prototype.end = function () {
 		var menu = new Menu(that.$hud.removeClass("unsolid"));
 		menu.title("result");
 		timeUp.remove();
-		var detailsId = generateId("details");
-		var scoreId = generateId("score");
 		var stats = that.game.stats;
-		menu.content("<div id=\"" + scoreId + "\" style=\"text-align:center;\"><h1>Score <span style=\"font-weight:bold;\">" + stats.score + "</span></h1></div>" +
-            "<table id=\"" + detailsId + "\" style=\"display:none;padding-right:5px;margin-left:auto;margin-right:auto;\">" +
+		menu.content("<table style=\"padding-right:5px;margin-left:auto;margin-right:auto;\">" + 
 			"<tr><td>Score</td><td style=\"font-weight:bold;\">" + stats.score + "</td></tr>" + 
-			"<tr><td>Accuracy</td><td style=\"font-weight:bold;\">" + ( round(stats.numHits / ( stats.numHits + stats.numMisses), 2) || "n/a") + "</td></tr>" +
+			"<tr><td>Accuracy</td><td style=\"font-weight:bold;\">" + ( round(stats.numHits / ( stats.numHits + stats.numMisses), 1) || "n/a") + "</td></tr>" +
 			"<tr><td>Average time till touch</td style=\"font-weight:bold;\"><td style=\"font-weight:bold;\"> " + ( round(stats.totalTimeToHit / stats.numHits, 1) || "n/a" )  + "</td></tr>" + 
 			"<tr><td>Total clicks</td><td style=\"font-weight:bold;\">" + (stats.numHits + stats.numMisses) + "<br/>" + 
 			"<tr><td>Longest chain</td><td style=\"font-weight:bold;\"> " + stats.longestChain + "</td></tr>" + 
@@ -235,23 +232,7 @@ GameHud.prototype.end = function () {
 			"<tr><td>Average lifespan</td><td style=\"font-weight:bold;\">" + (round(stats.totalLifeSpan / stats.numTargets, 1) || "n/a") + "</td></tr>" +
 			"</table>"
 		);
-		var $details = menu.$content.find("#" + detailsId);
-		var $score = menu.$content.find("#" + scoreId);
-		menu.addButton("done", function () { this.hide(); titleScreen(); }, menu);
-		menu.addButton("details", function () {
-		    if ($score.css("display") === "block") {
-		        this.text("back");
-		        $details.show();
-		        $score.hide();
-		        menu.position();
-		    }
-		    else {
-		        this.text("details");
-		        $details.hide();
-		        $score.show();
-		        menu.position();
-		    }
-		});
+		menu.addButton("done", function(){ this.hide(); titleScreen(); }, menu);
 		menu.show();
 	}, 2000);
 }
@@ -577,52 +558,35 @@ BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
 
 function Menu($parent){
 	this.$parent = $parent;
-	this.id = generateId("menu");
-	this.$elem = $("<div id=\"" + this.id + "\" class=\"menu\">" +
-        "<div id=\"menuHeader" + this.id +"\" class=\"menuHeader\"></div>" + 
-        "<div id=\"menuContent" + this.id + "\" class=\"menuContent\">" +
-        "</div>" + 
-        "<table class=\"menuButtons\"><tr></tr></table>" + 
-        "</div>");
+	this.id = Math.floor(Math.random() * 100);
+	this.$elem = $("<div id=\"menu" + this.id + "\" class=\"menu\"><div id=\"menuHeader" + this.id +"\" class=\"menuHeader\"></div><div id=\"menuContent" + this.id +"\" class=\"menuContent\"></div></div>");
 	this.$header = this.$elem.find(".menuHeader");
 	this.$content = this.$elem.find(".menuContent");
-	this.$buttons = this.$elem.find(".menuButtons").find("tr");
 }
 
 Menu.prototype.show = function(){
-    if(this.$parent.find("#menu" + this.id).length == 0){
-        this.$elem.appendTo(this.$parent);
-    }
-    this.position();
-    this.$elem.show();
-};
+	if(this.$parent.find("#menu" + this.id).length == 0){
+		this.$elem.appendTo(this.$parent);
+	}
+	this.$elem.css("top", (PLAYGROUND_HEIGHT - this.$elem.height()) / 2).show();
+}
 
-Menu.prototype.hide = function () {
-    this.$elem.hide();
-};
+Menu.prototype.hide = function(){
+	this.$elem.hide();
+}
 
-Menu.prototype.position = function () {
-    this.$elem.css("top", (PLAYGROUND_HEIGHT - this.$elem.height()) / 2);
-};
-
-Menu.prototype.title = function (title) {
-    this.$header.text(title);
-};
+Menu.prototype.title = function(title){
+	this.$header.text(title);
+}
 
 Menu.prototype.content = function(content){
 	this.$content.html(content);
 };
 
-Menu.prototype.remove = function () {
-    this.$elem.remove();
-};
-
 Menu.prototype.addButton = function(name, callback, obj){
-    var that = this;
 	var id = "menu" + name + Math.floor(Math.random() * 100);
 	var $button = $("<div id=\"" + id + "\" class=\"menuButton\"></div>").text(name)
-        .wrap("td")
-        .appendTo(this.$buttons);
+		.appendTo(this.$content);
 	obj = obj || $button;
 	$button.click(function(){callback.call(obj)});
 	return $button;
@@ -652,12 +616,12 @@ function titleScreen() {
 	menu.addButton("play", function() { 
 		countDown.call(this, 3);
 		setTimeout(function(){
-			menu.remove();
+			menu.hide();
 			play(60);
 		}, 3000);
 	});
 	menu.show();
-}
+};
 
 function play(timeLimit) {
     $.playground().clearAll(true)
