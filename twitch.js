@@ -197,8 +197,9 @@ function GameHud(game){
 	this.$score = $("#score");
 	this.$hud = $("#hud");
 	this.$targets = $("#targets");
-	this.$combo = $("#combo");
+	this.$chain = $("#chain");
 	this.timer = new GameTimer(this.game.timeLimit);
+	this.chainFadeTimeout;
 }
 //For now
 GameHud.prototype.start = function () {
@@ -209,6 +210,7 @@ GameHud.prototype.end = function () {
     var that = this;
 	this.$targets.css("opacity", .5);
 	this.$score.remove();
+	this.$chain.remove();
 	var timeUp = $("<div style=\"position:relative;text-align:center;width:100px;margin-left:auto;margin-right:auto;top:45%;\">Time's up!</div>");
 	this.$hud.append(timeUp);
 	setTimeout(function(){
@@ -234,11 +236,15 @@ GameHud.prototype.end = function () {
 	}, 2000);
 }
 GameHud.prototype.updateStats = function(){
-	console.log(this.$score);
+    var that = this;
 	this.$score.text(this.game.stats.score.toString());
 	var chainLength = this.game.chainLength;
-	if(chainLength > 0){
-	    this.$combo.text(chainLength + "!").css("opacity", 1).animate({opacity: 0}, {duration: 1000, queue: false});
+	if (chainLength > 1) {
+	    clearTimeout(this.chainFadeTimeout);
+	    this.$chain.text(chainLength + "!").css("opacity", 1);
+	    this.chainFadeTimeout = setTimeout(function(){
+	        that.$chain.animate({ opacity: 0 }, { duration: 1000, queue: false });
+	    },1000);
 	}
 };
 GameHud.prototype.displayScore = function (score, xy) {
@@ -666,7 +672,7 @@ function play(timeLimit) {
     }, REFRESH_RATE);
     
     //Score display
-    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div><div id=\"combo\" class=\"hudText\"></div>");
+    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div><div id=\"chain\" class=\"hudText\"></div>");
     //Disable text select cursor
     $("#playground")[0].onselectstart = function () { return false; };
     var game = new GameState(timeLimit);

@@ -40,6 +40,13 @@
     position:absolute;
     left:5px;
 }
+#chain {
+    position: absolute;
+    right: 0;
+    top: 40px;
+    text-align:center;
+    width:40px;
+}
 .score
 {
     text-align:center;
