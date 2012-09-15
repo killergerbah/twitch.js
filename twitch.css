@@ -36,6 +36,10 @@
     user-select: none;
     cursor:default;
 }
+#score {
+    position:absolute;
+    left:5px;
+}
 .score
 {
     text-align:center;
@@ -78,7 +82,7 @@
 .timer
 {
     position:absolute;
-    right:0;
+    right:5px;
     top:0;
 }
 
@@ -144,4 +148,26 @@
             list-style-type:square;
         }
 
-    
+.circle {
+    position:inherit;
+    width:32px;
+    height:32px;
+    border-radius:16px;
+    background-color:white;
+}
+.arc {
+    position:absolute;
+    top:0;
+    left:0;
+    width:32px;
+    height:32px;
+    background-color:black;
+    border-radius:16px;
+}
+
+.clipLeft {
+    clip:rect(0px,16px, 32px, 0px);
+}
+.clipRight {
+    clip:rect(0px,32px, 32px, 16px);
+}

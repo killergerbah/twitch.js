@@ -192,15 +192,12 @@ GameState.prototype.updateCurrentChain = function () {
     }
 };
 
-GameState.prototype.currentChainLength = function () {
-    return this.chainLength;
-};
-
 function GameHud(game){
 	this.game = game;
 	this.$score = $("#score");
 	this.$hud = $("#hud");
 	this.$targets = $("#targets");
+	this.$combo = $("#combo");
 	this.timer = new GameTimer(this.game.timeLimit);
 }
 //For now
@@ -239,6 +236,10 @@ GameHud.prototype.end = function () {
 GameHud.prototype.updateStats = function(){
 	console.log(this.$score);
 	this.$score.text(this.game.stats.score.toString());
+	var chainLength = this.game.chainLength;
+	if(chainLength > 0){
+	    this.$combo.text(chainLength + "!").css("opacity", 1).animate({opacity: 0}, {duration: 1000, queue: false});
+	}
 };
 GameHud.prototype.displayScore = function (score, xy) {
     $("<div style=\"position:absolute;top:" + xy.y + "px;left:" + xy.x + "px;\" class=\"score score" + score.category + "\">" + score.score + "</div>")
@@ -250,20 +251,38 @@ GameHud.prototype.displayScore = function (score, xy) {
 
 
 function GameTimer(timeLimit) {
+    this.timeLimit = timeLimit;
     this.currentTime = timeLimit;
-    this.$elem = $("<div class=\"timer hudText\"></div>");
+    this.$elem = $("<div class=\"circle timer\"><div class=\"arc clipLeft\"></div><div class=\"arc clipRight\"></div></div>");
     this.ticker;
 }
 GameTimer.prototype.start = function () {
     var that = this;
     setTimeout(function () { that.end.call(that); }, this.currentTime * 1000);
-    this.$elem.text(this.currentTime.toString());
     this.currentTime--;
     this.ticker = setInterval(function () {
-        that.$elem.text(that.currentTime.toString());
-        that.currentTime--;
+        that.tick.call(that);
     }, 1000);
 }
+GameTimer.prototype.tick = function () {
+    var angle = 360 - this.currentTime / this.timeLimit * 360;
+    console.log(angle);
+    if (angle < 180) {
+        this.$elem.find(".clipRight").css({
+            webkitTransform: "rotate(" + angle + "deg)"
+        });
+    }
+    else {
+        this.$elem.find(".clipRight").css({
+            webkitTransform: "rotate(0deg)",
+            backgroundColor: "white"
+        });
+        this.$elem.find(".clipLeft").css({
+            webkitTransform: "rotate(" + (angle - 180) + "deg)"
+        });
+    }
+    this.currentTime--;
+};
 GameTimer.prototype.end = function () {
     clearInterval(this.ticker);
     this.$elem.remove();
@@ -474,7 +493,7 @@ NormalTarget.prototype.score = function () {
     else if (category == scoreCategories.snorlax) {
         score += 1;
     }
-    var chainLength = this.game.currentChainLength();
+    var chainLength = this.game.chainLength;
     console.log(chainLength);
     if (chainLength > 1) {
         score += 2 * (chainLength - 1);
@@ -533,7 +552,7 @@ BouncyTarget.prototype.score = function () {
     else if (category == scoreCategories.snorlax) {
         score += 1;
     }
-    var chainLength = this.game.currentChainLength();
+    var chainLength = this.game.chainLength;
     if (chainLength > 1) {
         score += (chainLength - 1);
         return new Score(score, scoreCategories.chain);
@@ -647,7 +666,7 @@ function play(timeLimit) {
     }, REFRESH_RATE);
     
     //Score display
-    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div>");
+    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div><div id=\"combo\" class=\"hudText\"></div>");
     //Disable text select cursor
     $("#playground")[0].onselectstart = function () { return false; };
     var game = new GameState(timeLimit);
