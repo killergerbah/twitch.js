@@ -140,6 +140,7 @@ function GameState(timeLimit) {
     this.chainLength = 0;
     this.gameHud = new GameHud(this);
     this.targetGenerator = new TargetGenerator(this);
+    this.accumulatedChainBonus = 0;
 };
 GameState.prototype = {
     start: function () {
@@ -215,15 +216,16 @@ GameState.prototype = {
     updateCurrentChain: function () {
         var that = this;
         clearTimeout(this.chainTimeout);
-        this.chainTimeout = setTimeout(function () { that.chainLength = 0; }, CHAIN_CLIP);
+        this.chainTimeout = setTimeout(function () { that.chainLength = 0; that.accumulatedChainBonus = 0}, CHAIN_CLIP);
         this.chainLength++;
+        this.accumulatedChainBonus += this.currentChainBonus();
         if (this.chainLength > this.stats.longestChain) {
             this.stats.longestChain = this.chainLength;
         }
     },
     currentChainBonus: function () {
         if (this.chainLength > 0) {
-            return this.chainLength * (this.chainLength - 1);
+            return this.chainLength * 2;
         }
         return 0;
     }
@@ -279,7 +281,7 @@ GameHud.prototype = {
         var chainLength = this.game.chainLength;
         if (chainLength > 1) {
             clearTimeout(this.chainDisplayTimeout);
-            var currentChainBonus = this.game.currentChainBonus();
+            var accumulatedChainBonus = this.game.accumulatedChainBonus;
             this.chainDisplayTimeout = setTimeout(function () {
                 that.$chain
                     .queue(function (next) {
@@ -293,7 +295,7 @@ GameHud.prototype = {
                     .delay(1000)
                     .animate({ opacity: 0 }, {
                         complete: function () {
-                            $(this).html(currentChainBonus + "<br/><span style=\"font-size:10px;\">bonus</span>");
+                            $(this).html(accumulatedChainBonus + "<br/><span style=\"font-size:10px;\">bonus</span>");
                         },
                         duration: 300,
                         queue: true
@@ -641,7 +643,7 @@ BouncyTarget.prototype.score = function () {
     }
     var chainLength = this.game.chainLength;
     if (chainLength > 1) {
-        return new Score(score, scoreCategories.chain);
+        return new Score(score + this.game.currentChainBonus(), scoreCategories.chain);
     }
     return new Score(score, category);
 }
@@ -663,7 +665,13 @@ BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
 BouncyTarget.prototype.displayChain = function () {
     var chainLength = this.game.chainLength;
     if (chainLength > 1) {
-        $("<div class=\"target_chain\">" + chainLength + "</div>").appendTo(this.$elem).fadeTo(1000, 0);
+        var $target_chain = this.$elem.find(".target_chain");
+        if ($target_chain.length == 0) {
+            $("<div class=\"target_chain\">" + chainLength + "</div>").appendTo(this.$elem).fadeTo(1000, 0);
+        }
+        else {
+            $target_chain.stop().css("opacity", 1).html(chainLength).fadeTo(1000, 0);
+        }
     }
 }
 
