@@ -175,7 +175,6 @@ GameState.prototype = {
         if (target.exploded) {
             this.stats.numFrags++;
         }
-
         this.gameHud.updateStats();
 
         var xy = target.$elem.xy();
@@ -221,6 +220,12 @@ GameState.prototype = {
         if (this.chainLength > this.stats.longestChain) {
             this.stats.longestChain = this.chainLength;
         }
+    },
+    currentChainBonus: function () {
+        if (this.chainLength > 0) {
+            return 2 * (this.chainLength - 1);
+        }
+        return 0;
     }
 }
 
@@ -231,7 +236,7 @@ function GameHud(game){
 	this.$targets = $("#targets");
 	this.$chain = $("#chain");
 	this.timer = new GameTimer(this.game.timeLimit);
-	this.chainFadeTimeout;
+	this.chainDisplayTimeout;
 }
 //For now
 GameHud.prototype = {
@@ -273,11 +278,37 @@ GameHud.prototype = {
         this.$score.text(this.game.stats.score.toString());
         var chainLength = this.game.chainLength;
         if (chainLength > 1) {
-            clearTimeout(this.chainFadeTimeout);
-            this.$chain.text(chainLength + "!").css("opacity", 1);
-            this.chainFadeTimeout = setTimeout(function () {
-                that.$chain.animate({ opacity: 0 }, { duration: 1000, queue: false });
-            }, 1000);
+            clearTimeout(this.chainDisplayTimeout);
+            var currentChainBonus = this.game.currentChainBonus();
+            this.chainDisplayTimeout = setTimeout(function () {
+                that.$chain
+                    .queue(function (next) {
+                        $(this).html(chainLength + "<br/><span style=\"font-size:10px;\">chain</span>");
+                        next();
+                    })
+                    .animate({ opacity: 1 }, {
+                        duration: 300,
+                        queue: true
+                    })
+                    .delay(1000)
+                    .animate({ opacity: 0 }, {
+                        complete: function () {
+                            $(this).html(currentChainBonus + "<br/><span style=\"font-size:10px;\">bonus</span>");
+                        },
+                        duration: 300,
+                        queue: true
+                    })
+                    .animate({ opacity: 1 }, {
+                        duration: 300,
+                        queue: true
+                    })
+                    .delay(1000)
+                    .animate({ opacity: 0 }, {
+                        duration: 300,
+                        queue: true
+                    });
+
+            }, CHAIN_CLIP);
         }
     },
     displayScore: function (score, xy) {
@@ -448,8 +479,8 @@ function Target(game, $elem, mass, stepper) {
     this.exploded = false;
     setTimeout(function () { that.disposable = true; }, 500);
  }
-//Remove object from DOM
 Target.prototype = {
+    //Remove object from DOM
     dispose: function () {
         var that = this;
         if (!this.exploded) {
@@ -458,7 +489,7 @@ Target.prototype = {
         this.$elem.remove();
         this.game.objectMap.deleteObject(this.$elem);
     },
-    //Blow target up and update score
+    //Blow target up
     explode: function () {
         var that = this;
         this.stepper.timeScale = .25;
@@ -523,6 +554,7 @@ function NormalTarget(game, $elem) {
     this.$elem.one("mousedown", function () {
         that.explode.call(that);
         that.game.registerHit(that);
+        that.displayChain();
     });
 }
 
@@ -547,10 +579,16 @@ NormalTarget.prototype.score = function () {
     }
     var chainLength = this.game.chainLength;
     if (chainLength > 1) {
-        score += 2 * (chainLength - 1);
-        return new Score(score, scoreCategories.chain);
+        return new Score(score + this.game.currentChainBonus(), scoreCategories.chain);
     }
     return new Score(score, category);
+};
+
+NormalTarget.prototype.displayChain = function () {
+    var chainLength = this.game.chainLength;
+    if (chainLength > 1) {
+        $("<div class=\"target_chain\">" + chainLength + "</div>").appendTo(this.$elem);
+    }
 };
 
 //A target that bounces when you hit it
@@ -575,6 +613,7 @@ function BouncyTarget(game, $elem, numHits) {
         that.bounce(mouseX, mouseY);
         that.game.registerHit(that);
         that.lastHit = new Date().getTime();
+        that.displayChain();
     });
 }
 
@@ -583,7 +622,6 @@ BouncyTarget.prototype = new Target();
 BouncyTarget.prototype.score = function () {
     var now = new Date().getTime();
     var reaction = now - this.lastTouched;
-
     var score = 0;
     if (this.numHits == 0) {
         score += 50;
@@ -603,10 +641,8 @@ BouncyTarget.prototype.score = function () {
     }
     var chainLength = this.game.chainLength;
     if (chainLength > 1) {
-        score += 2 * (chainLength - 1);
         return new Score(score, scoreCategories.chain);
     }
-    console.log(category);
     return new Score(score, category);
 }
 
@@ -623,6 +659,13 @@ BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
         this.punt(this.positionAsVector().add(mousePosition).unit().scale(BOUNCY_TARGET_BOUNCE_FORCE));
     }
 };
+
+BouncyTarget.prototype.displayChain = function () {
+    var chainLength = this.game.chainLength;
+    if (chainLength > 1) {
+        $("<div class=\"target_chain\">" + chainLength + "</div>").appendTo(this.$elem).fadeTo(1000, 0);
+    }
+}
 
 function Menu($parent){
 	this.$parent = $parent;
