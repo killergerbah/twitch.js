@@ -223,7 +223,7 @@ GameState.prototype = {
     },
     currentChainBonus: function () {
         if (this.chainLength > 0) {
-            return 2 * (this.chainLength - 1);
+            return this.chainLength * (this.chainLength - 1);
         }
         return 0;
     }
