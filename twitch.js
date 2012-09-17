@@ -71,7 +71,20 @@ ObjectMap.prototype = {
     },
     deleteObject: function ($elem) {
         delete this.objectMap[$elem.attr("id")];
-    }
+    },
+    removeAll: function () {
+        var key;
+        for (key in this.objectMap) {
+            var obj = this.objectMap[key];
+            if (obj.remove != "undefined") {
+                obj.remove();
+            }
+        }
+    },
+    remove: function () {
+        this.removeAll();
+	    this.objectMap = null;
+	}
 }
 
 function generateId(type) {
@@ -132,7 +145,7 @@ Color.prototype = {
 function GameState(timeLimit) {
     this.objectMap = new ObjectMap();
     this.timeLimit = timeLimit;
-    this.stats = { score: 0, totalTimeToHit: 0, numMisses: 0, numHits: 0, longestChain: 0, numDrops:0, numFrags:0, numTargets:0, totalLifeSpan:0 };
+    this.stats = { score: 0, totalTimeToHit: 0, numMisses: 0, numHits: 0, longestChain: 0, numDrops:0, numFrags:0, numTargets:0, totalLifeSpan:0, totalComboBonus:0, totalTwitchBonus: 0 };
     this.$targets = $("#targets");
     this.$playground = $("#playground");
     this.paused = false;
@@ -159,7 +172,6 @@ GameState.prototype = {
     },
     updateStats: function (type, target) {
         if (type === "click") {
-            console.log("click");
             this.stats.numMisses++;
             return;
         }
@@ -225,10 +237,21 @@ GameState.prototype = {
     },
     currentChainBonus: function () {
         if (this.chainLength > 0) {
-            return this.chainLength * 2;
+            return (this.chainLength - 1) * 2;
         }
         return 0;
-    }
+    },
+    remove: function () {
+		this.objectMap.remove();
+		this.gameHud.remove();
+		this.targetGenerator.remove();
+		this.objectMap = null;
+		this.gameHud = null;
+		this.targetGenerator = null;
+		this.$targets = null;
+		this.$playground = null;
+		$.playground().clearAll(true);
+	}
 }
 
 function GameHud(game){
@@ -271,7 +294,7 @@ GameHud.prototype = {
                 "<tr><td>Average lifespan</td><td style=\"font-weight:bold;\">" + (round(stats.totalLifeSpan / stats.numTargets, 1) || "n/a") + "</td></tr>" +
                 "</table>"
             );
-            menu.addButton("done", function () { this.hide(); titleScreen(); }, menu);
+            menu.addButton("done", function () { this.remove(); titleScreen(); that.game.remove(); }, menu);
             menu.show();
         }, 2000);
     },
@@ -317,7 +340,16 @@ GameHud.prototype = {
         $("<div style=\"position:absolute;top:" + xy.y + "px;left:" + xy.x + "px;\" class=\"score score" + score.category + "\">" + score.score + "</div>")
             .appendTo(this.$hud)
             .animate({ top: xy.y - 15 }, { duration: 500, easing: "linear", complete: function () { $(this).remove(); } });
-    }
+    },
+	remove: function(){
+		this.game = null;
+		this.$score = null;
+		this.$hud = null;
+		this.$targets = null;
+		this.$chain = null;
+		this.timer.remove();
+		this.timer = null;
+	}
 }
 
 
@@ -346,7 +378,7 @@ GameTimer.prototype = {
                 webkitTransform: "rotate(0deg)",
                 backgroundColor: "white"
             });
-        }, this.timeLimit * 500);
+        }, (Math.floor((this.timeLimit - 1) / 2) + 1) * 1000);
     },
     tick: function () {
         var progress = 1 - this.currentTime / this.timeLimit;
@@ -373,7 +405,11 @@ GameTimer.prototype = {
     end: function () {
         clearInterval(this.ticker);
         this.$elem.remove();
-    }
+    },
+	remove: function() {
+		this.startColor = null;
+		this.endColor = null;
+	}
 }
 
 function TargetGenerator(game){
@@ -420,7 +456,10 @@ TargetGenerator.prototype = {
     },
     end: function () {
         clearTimeout(this.targetTimeout);
-    }
+    },
+	remove: function() {
+		this.game = null;
+	}
 }
 //2D vector
 function Vector(x, y) {
@@ -479,17 +518,18 @@ function Target(game, $elem, mass, stepper) {
     this.lastPosition = null;
     this.disposable = false;
     this.exploded = false;
-    setTimeout(function () { that.disposable = true; }, 500);
+    setTimeout(function () { that.disposable = true; that = null; }, 500);
  }
 Target.prototype = {
     //Remove object from DOM
-    dispose: function () {
-        var that = this;
+    remove: function () {
         if (!this.exploded) {
             this.game.registerDrop(this);
         }
+		console.log("disposed");
         this.$elem.remove();
         this.game.objectMap.deleteObject(this.$elem);
+        this.game = null;
     },
     //Blow target up
     explode: function () {
@@ -498,7 +538,7 @@ Target.prototype = {
         this.exploded = true;
         this.$elem.addClass("blink unsolid").off();
         setTimeout(function () {
-            that.dispose.call(that);
+            that.remove.call(that);
         }, 500);
     },
     //Move target to next position
@@ -657,7 +697,7 @@ BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
     else {
         //Change trajectory of target depending on mouse position
         var mousePosition = new Vector(-mouseX, -mouseY);
-        console.log(this.positionAsVector().add(mousePosition).toString());
+        //console.log(this.positionAsVector().add(mousePosition).toString());
         this.punt(this.positionAsVector().add(mousePosition).unit().scale(BOUNCY_TARGET_BOUNCE_FORCE));
     }
 };
@@ -706,7 +746,13 @@ Menu.prototype = {
         obj = obj || $button;
         $button.click(function () { callback.call(obj) });
         return $button;
-    }
+    },
+	remove: function() {
+		this.$parent = null;
+		this.$content = null;
+		this.$header = null;
+		this.$elem.remove();
+	}
 }
 
 function loadFonts() {
@@ -733,8 +779,8 @@ function titleScreen() {
 	menu.addButton("play", function() { 
 		countDown.call(this, 3);
 		setTimeout(function(){
-			menu.hide();
-			play(60);
+			menu.remove();
+			play(5);
 		}, 3000);
 	});
 	menu.show();
@@ -750,17 +796,18 @@ function play(timeLimit) {
     
     $.playground().registerCallback(function () {
         //move each target to its next position
-        $(".target").each(function () {
-            if (game && !game.paused) {
+        if (game && !game.paused) {
+            $(".target").each(function () {
+            
                 $this = $(this);
                 var target = game.objectMap.getObject($this);
                 target.step();
                 if (target.disposable && target.offPlayground()) {
                     //remove offscreen targets from the DOM
-                    target.dispose();
+                    target.remove();
                 }
-            }
-        });
+            });
+        }
     }, REFRESH_RATE);
     
     //Score display
