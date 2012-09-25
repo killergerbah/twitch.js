@@ -186,3 +186,29 @@
     text-shadow: 0 0 10px #fff;
     opacity:.7;
 }
+.arrow-up {
+    width: 0;
+    border-left: 7px solid transparent;
+	border-right: 7px solid transparent;
+	
+	border-bottom: 7px solid #0f0;
+}
+.arrow-down {
+    height: 0;
+    border-left: 7px solid transparent;
+	border-right: 7px solid transparent;
+	
+	border-top: 7px solid #f00;
+}
+#difficulty {
+    position:absolute;
+    bottom:0;
+    right:0;
+}
+#difficultyArrow {
+    margin:4px;
+    float:left;
+}
+#difficultyNumber {
+    float:left;
+}

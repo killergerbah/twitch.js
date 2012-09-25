@@ -1,15 +1,10 @@
 ﻿/* twitch by R-J 
     A fast-paced shootemup */
-
+/*global $ */
 /// <reference path="jquery-1.8.0.min.js" />
 /// <reference path="jquery.gamequery-0.7.0.js" />
 
-
-//TODO: Multi-hit targets
-//      Update scoring system to include target speed, chaining
-//      Punish missing by adding delay of some sort till next shot
-//      Sounds (for hits, misses, target generation, target removal)
-WebFontConfig = {
+var WebFontConfig = {
     google: { families: ['Share'] }
 };
 
@@ -26,23 +21,56 @@ var BOUNCY_TARGET_HITS_REQUIRED = 3;
 var BOUNCY_TARGET_BOUNCE_FORCE = 350;
 var CHAIN_CLIP = 500;
 var START_DIFFICULTY = 1;
-var LEARNING_RATE = .02;
+var LEARNING_RATE = 0.02;
 var scoreCategories = {
-	sick:0, ok:1, shit:2, snorlax:3, chain:4
+    sick: 0,
+    ok: 1,
+    shit: 2,
+    snorlax: 3,
+    chain: 4
 };
 var spriteOptions = {
 	normal: { animation: new $.gQ.Animation({ imageURL: "sprites/normal.png" }), width: 50, height: 50, posx: -9999, posy: -9999 },
 	bouncy: { animation: new $.gQ.Animation({ imageURL: "sprites/bouncy.png" }), width: 50, height: 50, posx: -9999, posy: -9999 }
 };
+
+//2D vector
+function Vector(x, y) {
+    "use strict";
+    this.x = x;
+    this.y = y;
+}
+
+Vector.prototype = {
+    add: function (vector) {
+        return new Vector(this.x + vector.x, this.y + vector.y);
+    },
+    magnitude: function () {
+        var x = this.x,
+            y = this.y;
+        return Math.sqrt(x * x + y * y);
+    },
+    scale: function (constant) {
+        return new Vector(this.x * constant, this.y * constant);
+    },
+    unit: function () {
+        return this.scale(1 / this.magnitude());
+    },
+    toString: function () {
+        return "(" + this.x + ", " + this.y + ")";
+    }
+}
+
 var positionFunctions = {
 	//Returns function of time that computes projectile position with gravity
-	projectile: function (translateVector, directionVector, mass) {
-		var speed = directionVector.magnitude();
-		var cosT = directionVector.x / speed;
-		var sinT = directionVector.y / speed;
+    projectile: function (translateVector, directionVector, mass) {
+        "use strict";
+		var speed = directionVector.magnitude(),
+		    cosT = directionVector.x / speed,
+		    sinT = directionVector.y / speed;
 		//console.log(directionVector);
 		return function (t) {
-			return translateVector.add(new Vector(speed * t * cosT, (speed * t * sinT) + (.5 * GRAVITY_ACCELERATION * mass * t * t)));
+			return translateVector.add(new Vector(speed * t * cosT, (speed * t * sinT) + (0.5 * GRAVITY_ACCELERATION * mass * t * t)));
 		};
 	}
 }
@@ -160,6 +188,7 @@ GameState.prototype = {
         var that = this;
         this.targetGenerator.start();
         this.gameHud.start();
+        this.gameHud.displayDifficulty(this.targetGenerator.difficulty, "none");
         this.$playground.click(function () { that.registerClick.call(that); });
         setTimeout(function () { that.end.call(that); }, this.timeLimit * 1000); //time limit is in seconds
     },
@@ -213,16 +242,18 @@ GameState.prototype = {
     },
     registerHit: function (target) {
         this.targetGenerator.tickle();
+        this.gameHud.displayDifficulty(this.targetGenerator.difficulty, "up");
         this.updateCurrentChain();
         this.updateStats("hit", target);
     },
     registerClick: function () {
-        // console.log("click")
         this.targetGenerator.soothe();
+        this.gameHud.displayDifficulty(this.targetGenerator.difficulty, "down");
         this.updateStats("click");
     },
     registerDrop: function (target) {
         this.targetGenerator.soothe();
+        this.gameHud.displayDifficulty(this.targetGenerator.difficulty, "down");
         this.updateStats("drop", target);
     },
     updateCurrentChain: function () {
@@ -237,7 +268,7 @@ GameState.prototype = {
     },
     currentChainBonus: function () {
         if (this.chainLength > 0) {
-            return (this.chainLength - 1) * 2;
+            return this.chainLength - 1;
         }
         return 0;
     },
@@ -258,8 +289,10 @@ function GameHud(game){
 	this.game = game;
 	this.$score = $("#score");
 	this.$hud = $("#hud");
-	this.$targets = $("#targets");
 	this.$chain = $("#chain");
+	this.$difficulty = $("#difficulty");
+	this.$difficultyNumber = $("#difficultyNumber");
+	this.$difficultyArrow = $("#difficultyArrow");
 	this.timer = new GameTimer(this.game.timeLimit);
 	this.chainDisplayTimeout;
 }
@@ -271,9 +304,10 @@ GameHud.prototype = {
     },
     end: function () {
         var that = this;
-        this.$targets.css("opacity", .5);
-        this.$score.remove();
-        this.$chain.remove();
+        this.game.$targets.css("opacity", .5);
+        this.$score.hide();
+        this.$chain.hide();
+        this.$difficulty.hide();
         var timeUp = $("<div style=\"position:relative;text-align:center;width:100px;margin-left:auto;margin-right:auto;top:45%;\">Time's up!</div>");
         this.$hud.append(timeUp);
         setTimeout(function () {
@@ -341,12 +375,30 @@ GameHud.prototype = {
             .appendTo(this.$hud)
             .animate({ top: xy.y - 15 }, { duration: 500, easing: "linear", complete: function () { $(this).remove(); } });
     },
+    displayDifficulty: function (difficulty, arrowDir) {
+        if (arrowDir === "none") { //first display
+            this.$difficultyNumber.html(round(difficulty, 2));
+            return;
+        }
+        if (arrowDir === "up") {
+            this.$difficultyArrow.removeClass().addClass("arrow-up");
+        }
+        else if (arrowDir === "down") {
+            this.$difficultyArrow.removeClass().addClass("arrow-down");
+        }
+        this.$difficultyArrow.css("opacity", 1).stop().fadeTo(1000, 0);
+        this.$difficultyNumber.html(round(difficulty, 2));
+    },
 	remove: function(){
-		this.game = null;
-		this.$score = null;
-		this.$hud = null;
-		this.$targets = null;
-		this.$chain = null;
+	    this.game = null;
+
+	    this.$score.remove();
+	    this.$hud.remove();
+	    this.$chain.remove();
+	    this.$difficulty.remove();
+		this.$difficultyArrow = null;
+		this.$difficultyNumber = null;
+
 		this.timer.remove();
 		this.timer = null;
 	}
@@ -461,29 +513,6 @@ TargetGenerator.prototype = {
 		this.game = null;
 	}
 }
-//2D vector
-function Vector(x, y) {
-    this.x = x;
-    this.y = y;
-}
-
-Vector.prototype = {
-    add: function (vector) {
-        return new Vector(this.x + vector.x, this.y + vector.y);
-    },
-    magnitude: function () {
-        return Math.sqrt(this.x * this.x + this.y * this.y);
-    },
-    scale: function (constant) {
-        return new Vector(this.x * constant, this.y * constant);
-    },
-    unit: function () {
-        return this.scale(1 / this.magnitude());
-    },
-    toString: function () {
-        return "(" + this.x + ", " + this.y + ")";
-    }
-}
 
 //Compute the next x, y values
 function Stepper(position, timeInterval) {
@@ -526,7 +555,9 @@ Target.prototype = {
         if (!this.exploded) {
             this.game.registerDrop(this);
         }
-		console.log("disposed");
+        //allow only one call to this function
+        this.disposable = false;
+		//console.log("disposed");
         this.$elem.remove();
         this.game.objectMap.deleteObject(this.$elem);
         this.game = null;
@@ -538,7 +569,9 @@ Target.prototype = {
         this.exploded = true;
         this.$elem.addClass("blink unsolid").off();
         setTimeout(function () {
-            that.remove.call(that);
+            if (that.disposable) {
+                that.remove.call(that);
+            }
         }, 500);
     },
     //Move target to next position
@@ -604,26 +637,12 @@ NormalTarget.prototype = new Target();
 
 NormalTarget.prototype.score = function () {
     var now = new Date().getTime();
-    var reaction = now - this.lastTouched;
-    var category = scoreCategory(reaction);
-    var score = 0;
-    if (category == scoreCategories.sick) {
-        score += 50;
-    }
-    else if (category == scoreCategories.ok) {
-        score += 10;
-    }
-    else if (category == scoreCategories.shit) {
-        score += 5;
-    }
-    else if (category == scoreCategories.snorlax) {
-        score += 1;
-    }
+    var score = 5;
     var chainLength = this.game.chainLength;
     if (chainLength > 1) {
         return new Score(score + this.game.currentChainBonus(), scoreCategories.chain);
     }
-    return new Score(score, category);
+    return new Score(score, scoreCategories.ok);
 };
 
 NormalTarget.prototype.displayChain = function () {
@@ -645,9 +664,9 @@ function BouncyTarget(game, $elem, numHits) {
     this.disposable = false;
     this.mass = 1;   //default mass to 1
     this.numHits = numHits; //number of hits needed
-    setTimeout(function () { that.disposable = true; }, 500);
+    setTimeout(function () { that.disposable = true;}, 500);
     
-    this.$elem.on("mousedown", function (e) {
+    this.$elem.mousedown(function (e) {
         var playgroundPos = that.game.$playground.offset();
         var mouseX = e.pageX - playgroundPos.left;
         var mouseY = e.pageY - playgroundPos.top;
@@ -662,27 +681,18 @@ function BouncyTarget(game, $elem, numHits) {
 BouncyTarget.prototype = new Target();
 
 BouncyTarget.prototype.score = function () {
-    var now = new Date().getTime();
-    var reaction = now - this.lastTouched;
-    var score = 0;
-    if (this.numHits == 0) {
-        score += 50;
-    }
-    var category = scoreCategory(reaction);
-    if (category == scoreCategories.sick) {
-        score += 50;
-    }
-    else if (category == scoreCategories.ok) {
+    var score = 5;
+    var category;
+    if (this.numHits == 0) { //last hit
+        category = scoreCategories.sick;
         score += 10;
     }
-    else if (category == scoreCategories.shit) {
-        score += 5;
-    }
-    else if (category == scoreCategories.snorlax) {
-        score += 1;
+    else {
+        category = scoreCategories.ok;
     }
     var chainLength = this.game.chainLength;
     if (chainLength > 1) {
+        category = scoreCategories.chain;
         return new Score(score + this.game.currentChainBonus(), scoreCategories.chain);
     }
     return new Score(score, category);
@@ -697,7 +707,6 @@ BouncyTarget.prototype.bounce = function (mouseX, mouseY) {
     else {
         //Change trajectory of target depending on mouse position
         var mousePosition = new Vector(-mouseX, -mouseY);
-        //console.log(this.positionAsVector().add(mousePosition).toString());
         this.punt(this.positionAsVector().add(mousePosition).unit().scale(BOUNCY_TARGET_BOUNCE_FORCE));
     }
 };
@@ -780,7 +789,7 @@ function titleScreen() {
 		countDown.call(this, 3);
 		setTimeout(function(){
 			menu.remove();
-			play(5);
+			play(60);
 		}, 3000);
 	});
 	menu.show();
@@ -810,13 +819,21 @@ function play(timeLimit) {
         }
     }, REFRESH_RATE);
     
-    //Score display
-    $("#hud").append("<div id=\"score\" class=\"hudText\">0</div><div id=\"chain\" class=\"hudText\"></div>");
+    //Hud display elements
+    $("#hud").html("<div id=\"score\" class=\"hudText\">0</div>" +
+                     "<div id=\"chain\" class=\"hudText\"></div>" + 
+                     "<div id=\"difficulty\">" + 
+                        "<div id=\"difficultyArrow\"></div><div id=\"difficultyNumber\"></div>" +
+                     "</div>");
     //Disable text select cursor
     $("#playground")[0].onselectstart = function () { return false; };
     var game = new GameState(timeLimit);
 
-    $.playground().startGame(function () { $("#titleScreen").remove(); $(".target").remove(); game.start(); });
+    $.playground().startGame(function () {
+        $("#titleScreen").remove();
+        $(".target").remove();
+        game.start();
+    });
 }
 
 $(function () {
